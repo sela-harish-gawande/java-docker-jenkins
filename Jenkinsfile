@@ -60,7 +60,6 @@ pipeline {
                         export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
                         export AWS_DEFAULT_REGION=$AWS_REGION
                         aws sts get-caller-identity
-                        aws configure
                         aws ecr get-login-password --region ap-south-1 | nerdctl login --username AWS --password-stdin $Account_ID.dkr.ecr.ap-south-1.amazonaws.com
                         nerdctl push $Account_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:latest
                         '''
