@@ -77,29 +77,34 @@ pipeline {
       }
     }
 
-    // --------- Compile code for Sonar (if tools present) ---------
-    stage('Compile for Sonar (if Java)') {
+    // --------- Compile code for Sonar (Java) ---------
+    stage('Compile for Sonar (Java)') {
       steps {
         sh '''
           set -euxo pipefail
           SONAR_BINARIES=""
+
           if [ -f "./mvnw" ]; then
             chmod +x ./mvnw
-            ./mvnw -B -DskipTests=false clean verify
+            ./mvnw -B -DskipTests=false -Dmaven.compiler.release=17 clean verify
             SONAR_BINARIES="**/target/classes"
+
           elif [ -f "pom.xml" ]; then
             mvn -v >/dev/null 2>&1 || true
-            mvn -B -DskipTests=false clean verify
+            mvn -B -DskipTests=false -Dmaven.compiler.release=17 clean verify
             SONAR_BINARIES="**/target/classes"
+
           elif [ -f "./gradlew" ]; then
             chmod +x ./gradlew
-            ./gradlew clean build
+            ./gradlew clean build -Dorg.gradle.jvmargs="--release 17"
             SONAR_BINARIES="**/build/classes/java/main"
+
           elif [ -f "build.gradle" ]; then
             gradle -v >/dev/null 2>&1 || true
-            gradle clean build
+            gradle clean build -Dorg.gradle.jvmargs="--release 17"
             SONAR_BINARIES="**/build/classes/java/main"
           fi
+
           echo "$SONAR_BINARIES" > .sonar_binaries_path
         '''
       }
@@ -113,18 +118,17 @@ pipeline {
             sh '''
               set -euxo pipefail
 
-              # Decide whether to pass binaries or exclude Java, based on previous stage
               SONAR_BINARIES="$(cat .sonar_binaries_path || true)"
               SONAR_BIN_FLAG=""
               JAVA_EXCLUDE_FLAG=""
+
               if [ -n "$SONAR_BINARIES" ]; then
                 SONAR_BIN_FLAG="-Dsonar.java.binaries=${SONAR_BINARIES}"
               else
-                # No compiler available → avoid Java sensor failure
+                # Fallback: no compiler available → avoid Java sensor failure
                 JAVA_EXCLUDE_FLAG="-Dsonar.exclusions=**/*.java,**/node_modules/**,**/dist/**,**/target/**,**/.git/**"
               fi
 
-              # Run scanner (token & host injected by withSonarQubeEnv)
               sonar-scanner \
                 -Dsonar.projectKey=plumhq-jenkins-sample \
                 -Dsonar.projectName="PlumHQ Jenkins Sample" \
@@ -134,9 +138,9 @@ pipeline {
                 -Dsonar.host.url=$SONAR_HOST_URL \
                 -Dsonar.token=$SONAR_AUTH_TOKEN
 
-              # Add coverage flags if you have reports, e.g.:
-              #   -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-              #   -Dsonar.java.coveragePlugin=jacoco -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml
+              # Add coverage if you produce reports:
+              # -Dsonar.java.coveragePlugin=jacoco \
+              # -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml
             '''
           }
         }
