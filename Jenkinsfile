@@ -10,11 +10,11 @@ pipeline {
     AWS_REGION      = 'ap-south-1'
     ECR_REPO_NAME   = 'jenkins'
     IMAGE_TAG       = "${env.BUILD_NUMBER}"
-    AWS_CREDENTIALS = credentials('aws-credentials') // Jenkins credential ID
+    AWS_CREDENTIALS = credentials('aws-credentials')
 
-    // Names must match your Jenkins config:
-    SONARQUBE_SERVER = 'sonarqube'     // Manage Jenkins → System → SonarQube servers
-    SONAR_SCANNER    = 'sonar-scanner' // Global Tool Configuration → SonarQube Scanner
+    // SonarQube (must match your Jenkins config)
+    SONARQUBE_SERVER = 'sonarqube'      // Manage Jenkins → System → SonarQube servers
+    SONAR_SCANNER    = 'sonar-scanner'  // Global Tool Configuration → SonarQube Scanner
   }
 
   stages {
@@ -52,7 +52,7 @@ pipeline {
 
             echo "Building image $ECR_REPO_NAME:$IMAGE_TAG"
             nerdctl build -t $ECR_REPO_NAME:$IMAGE_TAG .
-            nerdctl tag $ECR_REPO_NAME:$IMAGE_TAG $Account_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:latest
+            nerdctl tag  $ECR_REPO_NAME:$IMAGE_TAG $Account_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:latest
           '''
         }
       }
@@ -77,24 +77,66 @@ pipeline {
       }
     }
 
-    // ---------- SonarQube ----------
+    // --------- Compile code for Sonar (if tools present) ---------
+    stage('Compile for Sonar (if Java)') {
+      steps {
+        sh '''
+          set -euxo pipefail
+          SONAR_BINARIES=""
+          if [ -f "./mvnw" ]; then
+            chmod +x ./mvnw
+            ./mvnw -B -DskipTests=false clean verify
+            SONAR_BINARIES="**/target/classes"
+          elif [ -f "pom.xml" ]; then
+            mvn -v >/dev/null 2>&1 || true
+            mvn -B -DskipTests=false clean verify
+            SONAR_BINARIES="**/target/classes"
+          elif [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew clean build
+            SONAR_BINARIES="**/build/classes/java/main"
+          elif [ -f "build.gradle" ]; then
+            gradle -v >/dev/null 2>&1 || true
+            gradle clean build
+            SONAR_BINARIES="**/build/classes/java/main"
+          fi
+          echo "$SONAR_BINARIES" > .sonar_binaries_path
+        '''
+      }
+    }
+
+    // ----------------- SonarQube Analysis -----------------
     stage('SonarQube Analysis') {
       steps {
         withSonarQubeEnv("${SONARQUBE_SERVER}") {
-          // put the scanner on PATH via Jenkins tool config
           withEnv(["PATH+SONAR=${tool SONAR_SCANNER}/bin"]) {
             sh '''
               set -euxo pipefail
+
+              # Decide whether to pass binaries or exclude Java, based on previous stage
+              SONAR_BINARIES="$(cat .sonar_binaries_path || true)"
+              SONAR_BIN_FLAG=""
+              JAVA_EXCLUDE_FLAG=""
+              if [ -n "$SONAR_BINARIES" ]; then
+                SONAR_BIN_FLAG="-Dsonar.java.binaries=${SONAR_BINARIES}"
+              else
+                # No compiler available → avoid Java sensor failure
+                JAVA_EXCLUDE_FLAG="-Dsonar.exclusions=**/*.java,**/node_modules/**,**/dist/**,**/target/**,**/.git/**"
+              fi
+
+              # Run scanner (token & host injected by withSonarQubeEnv)
               sonar-scanner \
                 -Dsonar.projectKey=plumhq-jenkins-sample \
                 -Dsonar.projectName="PlumHQ Jenkins Sample" \
                 -Dsonar.sources=. \
-                -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/target/**,**/.git/** \
+                ${SONAR_BIN_FLAG} \
+                ${JAVA_EXCLUDE_FLAG} \
                 -Dsonar.host.url=$SONAR_HOST_URL \
-                -Dsonar.login=$SONAR_AUTH_TOKEN
-                # Add coverage flags for your stack if you have reports, e.g.:
-                # -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-                # -Dsonar.java.coveragePlugin=jacoco -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml
+                -Dsonar.token=$SONAR_AUTH_TOKEN
+
+              # Add coverage flags if you have reports, e.g.:
+              #   -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+              #   -Dsonar.java.coveragePlugin=jacoco -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml
             '''
           }
         }
