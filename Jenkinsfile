@@ -24,7 +24,7 @@ pipeline {
                     mkdir -p /run/buildkit
                     buildkitd --root /run/buildkit &
                     sleep 2 
-                    nerdctl pull 378898159802.dkr.ecr.ap-south-1.amazonaws.com/jenkins || echo "Pull failed"
+                    nerdctl pull $Account_ID.dkr.ecr.ap-south-1.amazonaws.com/jenkins || echo "Pull failed"
                     nerdctl images
                     '''
                 }
@@ -34,7 +34,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'jenkins-aws-cred', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aws-credentials', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                         sh '''
                         # Login to ECR using AWS CLI and nerdctl
                         export XDG_RUNTIME_DIR=/run/user/$(id -u)
@@ -61,7 +61,7 @@ pipeline {
                         export AWS_DEFAULT_REGION=$AWS_REGION
                         aws sts get-caller-identity
                         aws configure
-                        aws ecr get-login-password --region ap-south-1 | nerdctl login --username AWS --password-stdin 378898159802.dkr.ecr.ap-south-1.amazonaws.com
+                        aws ecr get-login-password --region ap-south-1 | nerdctl login --username AWS --password-stdin $Account_ID.dkr.ecr.ap-south-1.amazonaws.com
                         nerdctl push $Account_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:latest
                         '''
                     }
