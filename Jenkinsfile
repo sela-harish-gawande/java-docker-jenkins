@@ -6,7 +6,7 @@ pipeline {
     }
 
     environment {
-        Account_ID = '$Account_IDs'
+        Account_ID = '378898159802'
         AWS_REGION = 'ap-south-1'
         ECR_REPO_NAME = 'jenkins'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
