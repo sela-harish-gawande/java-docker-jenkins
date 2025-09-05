@@ -33,21 +33,6 @@ pipeline {
             }
         }
 
-        /* ---- ADD: compile for Sonar only if Maven project is present ---- */
-        stage('Build & Test (Maven for Sonar)') {
-            when { anyOf { expression { fileExists('pom.xml') }; expression { fileExists('mvnw') } } }
-            steps {
-                sh '''
-                  set -euxo pipefail
-                  if [ -x "./mvnw" ]; then
-                    ./mvnw -B clean verify -Dmaven.compiler.release=17
-                  else
-                    mvn -B clean verify -Dmaven.compiler.release=17
-                  fi
-                '''
-            }
-        }
-
         /* ---- ADD: SonarQube analysis (no sonar-project.properties needed) ---- */
         stage('SonarQube Analysis') {
             steps {
