@@ -75,7 +75,7 @@ pipeline {
         stage('Update Deployment Manifest in k8s-manifests') {
             environment {
                 TARGET_REPO = 'github.com/vikasb-sela/ArgoCD.git'
-                PATCH_FILE = 'notifications-service/overlays/stg/patch.yaml'
+                PATCH_FILE = 'ArgoCD/k8s-manifests/notifications-service/overlays/stg/patch.yaml'
                 FULL_IMAGE = "${Account_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:latest"
             }
             steps {
@@ -84,10 +84,9 @@ pipeline {
                         echo "Cloning target repo..."
                         git config --global user.name "jenkins-bot"
                         git config --global user.email "jenkins@local"
-                        git clone https://${GITHUB_PAT}@${TARGET_REPO} manifests
+                        git clone https://${GITHUB_PAT}@${TARGET_REPO}
 
                         echo "Updating image in patch file..."
-                        cd manifests
                         sed -i "s|image: .*|image: ${FULL_IMAGE}|" ${PATCH_FILE}
 
                         echo "Committing and pushing changes..."
