@@ -33,7 +33,7 @@ RUN ./mvnw package
 # Stage 2 of 2 (to create a downsized "container executable", ~161MB)         #
 ###############################################################################
 # https://hub.docker.com/_/alpine
-FROM alpine:latest
+FROM alpine:3.19
 ENV JAVA_HOME=/jre
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 RUN apk --no-cache add ca-certificates
