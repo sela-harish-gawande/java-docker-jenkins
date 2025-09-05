@@ -85,10 +85,11 @@ pipeline {
                         git config --global user.name "jenkins-bot"
                         git config --global user.email "jenkins@local"
                         git clone https://${GITHUB_PAT}@${TARGET_REPO}
-
+                        git checkout main
+                        git pull origin main
+                        ls -la
                         echo "Updating image in patch file..."
                         sed -i "s|image: .*|image: ${FULL_IMAGE}|" ${PATCH_FILE}
-
                         echo "Committing and pushing changes..."
                         git add ${PATCH_FILE}
                         git commit -m "ci: update image to ${FULL_IMAGE}" || echo "No changes to commit"
