@@ -4,7 +4,6 @@ pipeline {
             label 'jenkins-jenkins-agent'
         }
     }
-
     environment {
         Account_ID = '378898159802'
         AWS_REGION = 'ap-south-1'
@@ -12,7 +11,6 @@ pipeline {
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         AWS_CREDENTIALS = credentials('aws-credentials')  // Jenkins credential ID
     }
-
     stages {
         stage('Checkout') {
             steps {
@@ -20,7 +18,8 @@ pipeline {
                 //git branch: 'main', url: 'https://github.com/sela-harish-gawande/java-docker-build-tutorial.git'
                 script {
                     sh '''
-                    echo "Welcome"
+                    trivy fs .
+                    echo "Source code filesystem scanned with Trivy"
                     mkdir -p /run/buildkit
                     buildkitd --root /run/buildkit &
                     sleep 2 
@@ -30,7 +29,6 @@ pipeline {
                 }
             }
         }
-
         stage('Build Docker Image') {
             steps {
                 script {
@@ -50,7 +48,13 @@ pipeline {
                 }
             }
         }
-
+        stage('Trivy Image Scan') {
+            steps {
+                sh '''
+                    trivy image --severity HIGH,CRITICAL --exit-code 1 $Account_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:latest
+                '''
+            }
+        }
         stage('Push to ECR') {
             steps {
                 script {
