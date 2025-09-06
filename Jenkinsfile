@@ -22,7 +22,6 @@ pipeline {
                     mkdir -p /run/buildkit
                     buildkitd --root /run/buildkit &
                     sleep 2
-                    nerdctl images --format '{{.Repository}} {{.ID}}' | grep jenkins | awk '{print $2}' | xargs -r nerdctl rmi -f
                     nerdctl pull $Account_ID.dkr.ecr.ap-south-1.amazonaws.com/jenkins || echo "Pull failed"
                     nerdctl images
                     '''
@@ -106,6 +105,7 @@ pipeline {
                         aws sts get-caller-identity
                         aws ecr get-login-password --region $AWS_REGION | nerdctl login --username AWS --password-stdin $Account_ID.dkr.ecr.$AWS_REGION.amazonaws.com
                         nerdctl push $Account_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:latest
+                        nerdctl images --format '{{.Repository}} {{.ID}}' | grep jenkins | awk '{print $2}' | xargs -r nerdctl rmi -f
                         '''
                     }
                 }
