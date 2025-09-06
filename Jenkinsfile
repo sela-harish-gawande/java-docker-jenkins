@@ -1,7 +1,7 @@
 pipeline {
     agent {
         kubernetes {
-            label 'jenkins-jenkins-agent'
+            label 'jenkins-agent'
         }
     }
     environment {
@@ -22,7 +22,7 @@ pipeline {
                     mkdir -p /run/buildkit
                     buildkitd --root /run/buildkit &
                     sleep 2
-                    nerdctl images | grep jenkins | awk '{print $3}' | xargs nerdctl rmi -f
+                    nerdctl images --format '{{.Repository}} {{.ID}}' | grep jenkins | awk '{print $2}' | xargs -r nerdctl rmi -f
                     nerdctl pull $Account_ID.dkr.ecr.ap-south-1.amazonaws.com/jenkins || echo "Pull failed"
                     nerdctl images
                     '''
