@@ -9,7 +9,9 @@ pipeline {
         AWS_REGION = 'ap-south-1'
         ECR_REPO_NAME = 'jenkins'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-        AWS_CREDENTIALS = credentials('aws-credentials')  // AWS credential ID in Jenkins
+        AWS_CREDENTIALS = credentials('aws-credentials')
+        SONARQUBE_SERVER = 'sonarqube' 
+        SONAR_SCANNER    = 'sonar-scanner' 
     }
     stages {
         stage('Checkout') {
