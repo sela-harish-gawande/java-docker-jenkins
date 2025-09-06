@@ -22,9 +22,49 @@ pipeline {
                     mkdir -p /run/buildkit
                     buildkitd --root /run/buildkit &
                     sleep 2
+                    nerdctl images | grep jenkins | awk '{print $3}' | xargs nerdctl rmi -f
                     nerdctl pull $Account_ID.dkr.ecr.ap-south-1.amazonaws.com/jenkins || echo "Pull failed"
                     nerdctl images
                     '''
+                }
+            }
+        }
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                    withEnv(["PATH+SONAR=${tool SONAR_SCANNER}/bin"]) {
+                        sh '''
+                          set -euxo pipefail
+
+                          # If Maven produced classes, point Java sensor to them; else exclude .java to avoid failure
+                          if [ -d "target/classes" ]; then
+                            EXTRA_FLAGS="-Dsonar.java.binaries=**/target/classes"
+                          else
+                            EXTRA_FLAGS="-Dsonar.exclusions=**/*.java,**/node_modules/**,**/dist/**,**/target/**,**/.git/**"
+                          fi
+
+                          sonar-scanner \
+                            -Dsonar.projectKey=plumhq-jenkins-sample \
+                            -Dsonar.projectName="PlumHQ Jenkins Sample" \
+                            -Dsonar.sources=. \
+                            ${EXTRA_FLAGS} \
+                            -Dsonar.host.url=$SONAR_HOST_URL \
+                            -Dsonar.token=$SONAR_AUTH_TOKEN
+
+                          # For coverage later, add for JaCoCo:
+                          # -Dsonar.java.coveragePlugin=jacoco \
+                          # -Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml
+                        '''
+                    }
+                }
+            }
+        }
+
+        /* ---- ADD: enforce Quality Gate ---- */
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 20, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
